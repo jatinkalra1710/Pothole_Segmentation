@@ -6,6 +6,15 @@ from PIL import Image
 import tempfile
 import time
 
+# --- FIX FOR TORCH SAFE LOADING OF OLD YOLO CHECKPOINTS ---
+import torch.serialization as ts
+from ultralytics.nn.tasks import DetectionModel
+
+# Allow torch to unpickle Ultralytics DetectionModel stored in .pt checkpoint
+# (safe to do because the checkpoint comes from your own training)
+ts.add_safe_globals([DetectionModel])
+# -----------------------------------------------------------
+
 st.set_page_config(page_title="Pothole Detection", layout="wide")
 
 st.title("Real-Time Pothole Detection App")
@@ -15,13 +24,14 @@ model_choice = st.selectbox(
 )
 
 @st.cache_resource
-def load_model(name):
+def load_model(name: str):
     return YOLO(name)
 
 model = load_model(model_choice)
 
 st.success(f"Loaded model: {model_choice}")
 mode = st.radio("Choose Mode:", ["Image", "Video File", "Real-Time Webcam"])
+
 if mode == "Image":
     uploaded = st.file_uploader("Upload Image", type=["jpg", "jpeg", "png"])
 
@@ -39,6 +49,7 @@ if mode == "Image":
 
         with st.expander("Detection JSON"):
             st.json(results.to_json())
+
 elif mode == "Video File":
     uploaded_video = st.file_uploader("Upload Video", type=["mp4", "avi", "mov", "mkv"])
 
@@ -67,9 +78,8 @@ elif mode == "Video File":
         cap.release()
         st.success("Video processing complete!")
 
-
 elif mode == "Real-Time Webcam":
-    st.markdown(" Real-Time Webcam Pothole Detection")
+    st.markdown("Real-Time Webcam Pothole Detection")
 
     run = st.checkbox("Start Webcam")
 
@@ -89,6 +99,7 @@ elif mode == "Real-Time Webcam":
 
             FRAME_WINDOW.image(annotated, channels="BGR", use_container_width=True)
 
+            # Keep reading the checkbox state
             run = st.session_state.get("Start Webcam", True)
 
         cap.release()
